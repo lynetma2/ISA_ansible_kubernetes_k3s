@@ -1,0 +1,29 @@
+- name: Uninstall k3s on the agent nodes
+  hosts: agents
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+
+   - name: Uninstall k3s on Agent Nodes
+     shell:
+      cmd: "/usr/local/bin/k3s-agent-uninstall.sh"
+     become: true
+
+- name: Uninstall k3s on the server node
+  hosts: servers
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+  
+   - name: Uninstall k3s on Server Node
+     shell:
+      "/usr/local/bin/k3s-uninstall.sh"
+     become: true

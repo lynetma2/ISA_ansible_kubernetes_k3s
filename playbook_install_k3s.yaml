@@ -1,0 +1,104 @@
+- name: Install k3s on the server node
+  hosts: servers
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+  
+   - name: Install k3s on Server Node
+     shell:
+      "curl -sfL https://get.k3s.io | sh -"
+     become: true
+
+   - name: Get k3s Server Token
+     shell:
+      "sudo cat /var/lib/rancher/k3s/server/node-token"
+     become: true
+     register: token
+
+- name: Install k3s on the agent nodes
+  hosts: agents
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+
+   - name: Install k3s on Agent Nodes
+     shell:
+      cmd: "curl -sfL https://get.k3s.io | K3S_URL=https://{{hostvars['server']['ansible_default_ipv4']['address']}}:6443 K3S_TOKEN={{hostvars['server']['token'].stdout}} sh -"
+     become: true
+
+- name: Verify the installation
+  hosts: servers
+  tasks:
+   - name: Check the status of teh installed k3s nodes
+     shell:
+      cmd: "sudo k3s kubectl get nodes"
+     become: true
+     register: status
+     delegate_to: server
+  
+   - name: Show status content
+     debug:
+      var: status.stdout
+
+- name: Install Knative
+  hosts: servers
+  tasks:
+   - name: Installing Knative Serving custom ressources
+     shell:
+      cmd: "sudo kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.15.2/serving-crds.yaml"
+     become: true
+
+   - name: Installing Knative Serving core components
+     shell:
+      cmd: "sudo kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.15.2/serving-core.yaml"
+     become: true
+  
+   - name: Installing the network layer of choice Kourier (Best for fit it all in Knative)
+     shell:
+      cmd: "sudo kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.15.1/kourier.yaml"
+     become: true
+  
+   - name: Configuring Kourier
+     shell:
+      cmd: "sudo kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{\"data\":{\"ingress-class\":\"kourier.ingress.networking.knative.dev\"}}'"
+     become: true
+  
+   - name: Getting the external IP adress (This doesn't work on local setups)
+     shell:
+      cmd: "sudo kubectl --namespace kourier-system get service kourier"
+     become: true
+     register: externalIP
+  
+   - name: Show externalIP
+     debug:
+      var: externalIP.stdout
+  
+   - name: Pause for 2 minutes to build network
+     ansible.builtin.pause:
+       minutes: 1
+
+- name: Install hello world example
+  hosts: servers
+  tasks:
+    - name: Copying the hello world example yaml to server node
+      copy:
+        src: ./hello.yaml
+        dest: ~/hello.yaml
+    
+    - name: Applying the yaml in kubernetes cluster
+      shell:
+        cmd: "sudo kubectl apply -f hello.yaml"
+      become: true
+
+    - name: Fix DNS because it is a local cluster
+      shell:
+        cmd: "sudo kubectl patch configmap/config-domain --namespace knative-serving --type merge --patch '{\"data\":{\"example.com\":\"\"}}'"
+      become: true
