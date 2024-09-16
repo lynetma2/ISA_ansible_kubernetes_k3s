@@ -2,13 +2,6 @@
 - name: Install OpenWhisk and wsk cli using helm
   hosts: servers
   tasks:
-    - name: Install Openwhisk Helm Chart
+    - name: Set the OpenWhisk port
       shell:
-        cmd: "helm install my-openwhisk openwhisk/openwhisk --namespace ow --create-namespace --set whisk.ingress.apiHostName={{hostvars['server']['ansible_default_ipv4']['address']}}"
-      register: ow_install
-
-    - name: Show install stuff
-      debug:
-        var: ow_install.stdout
-
-    #- name: Install OpenWhisk CLI tool
+        cmd: "wsk property set --apihost {{ow_install.stdout[ow_install.stdout.find(\"hostvars['server']['ansible_default_ipv4']['address']\"):][:ow_install.stdout[ow_install.stdout.find(\"hostvars['server']['ansible_default_ipv4']['address']\"):].find(\"\n\")]}}"
