@@ -1,0 +1,81 @@
+- name: Install k3s on the server node
+  hosts: servers
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+  
+   - name: Install k3s on Server Node
+     shell:
+      "curl -sfL https://get.k3s.io | sh -"
+     become: true
+
+   - name: Get k3s Server Token
+     shell:
+      "sudo cat /var/lib/rancher/k3s/server/node-token"
+     become: true
+     register: token
+
+- name: Install k3s on the agent nodes
+  hosts: agents
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+
+   - name: Install k3s on Agent Nodes
+     shell:
+      cmd: "curl -sfL https://get.k3s.io | K3S_URL=https://{{hostvars['server']['ansible_default_ipv4']['address']}}:6443 K3S_TOKEN={{hostvars['server']['token'].stdout}} sh -"
+     become: true
+
+- name: Verify the installation
+  hosts: servers
+  tasks:
+   - name: Check the status of teh installed k3s nodes
+     shell:
+      cmd: "sudo k3s kubectl get nodes"
+     become: true
+     register: status
+  
+   - name: Show status content
+     debug:
+      var: status.stdout
+
+- name: Install OpenWhisk and wsk cli using helm
+  hosts: servers
+  tasks:
+    - name: Install Helm
+      shell:
+        cmd: "sudo curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash"
+      become: true
+    
+    - name: Export kubeconfig to be k3s
+      shell:
+        cmd: "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml"
+    
+    - name: Fix permissions to k3s yaml
+      shell:
+        cmd: "sudo chmod 666 /etc/rancher/k3s/k3s.yaml"
+      become: true
+
+    - name: Add repo for Openwhisk Helm Chart
+      shell:
+        cmd: "helm repo add openwhisk https://openwhisk.apache.org/charts"
+    
+    - name: Install Openwhisk Helm Chart
+      shell:
+        cmd: "helm install my-openwhisk openwhisk/openwhisk --namespace ow --create-namespace --set whisk.ingress.apiHostName={{hostvars[server]['ansible_default_ipv4']['address']}}"
+      register: ow_install
+    
+    - name: Show install stuff
+      debug:
+        var: ow_install.stdout
+
+
+    #- name: Install OpenWhisk CLI tool
