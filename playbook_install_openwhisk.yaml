@@ -88,6 +88,37 @@
       shell:
         cmd: "wsk property set --apihost {{ow_install.stdout[ow_install.stdout.find(hostvars['server']['ansible_default_ipv4']['address']):][:ow_install.stdout[ow_install.stdout.find(hostvars['server']['ansible_default_ipv4']['address']):].find(\"\n\")]}}"
 
+    - name: Set the OpenWhisk auth
+      shell:
+        cmd: "wsk property set --auth 23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"
+    
+    - name: Transfer hello world javascript example
+      copy:
+        src: ./hello.js
+        dest: ~/hello.js
+
+    - name: Pause for 10 minutes to build network
+      ansible.builtin.pause:
+        minutes: 10
+
+    #Down from here is creation of demo action. to test that it works
+    
+    - name: Create demo package
+      shell:
+        cmd: "wsk -i package create demo"
+    
+    - name: Create demo action
+      shell:
+        cmd: "wsk -i action create /guest/demo/hello hello.js --web true"
+
+    - name: Get url of demo action
+      shell:
+        cmd: "wsk -i action get /guest/demo/hello --url"
+      register: url
+    
+    - name: Print URL of basic action
+      debug:
+        var: url.stdout
     #TODO add the port to wsk to make sure everyhting works as supposed
 
     #- name: Install OpenWhisk CLI tool

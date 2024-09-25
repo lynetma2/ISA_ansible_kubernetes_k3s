@@ -1,7 +1,7 @@
 servers:
   hosts:
     server:
-      ansible_host: 192.168.1.9
+      ansible_host: 192.168.1.8
   vars:
     ansible_user: sund
     ansible_ssh_pass: changeme
