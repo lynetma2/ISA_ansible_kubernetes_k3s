@@ -48,6 +48,20 @@
      debug:
       var: status.stdout
 
+   - name: Update Configuration location
+     shell: 
+      cmd: "mkdir .kube"
+   
+   - name: Update Configuration
+     shell:
+      cmd: "sudo cp /etc/rancher/k3s/k3s.yaml /home/sund/.kube/config"
+     become: true
+  
+   - name: Set Ownership
+     shell:
+      cmd: "sudo chown sund:sund /home/sund/.kube/config"
+     become: true 
+
 - name: Install Knative
   hosts: servers
   tasks:
@@ -60,10 +74,26 @@
      shell:
       cmd: "sudo kubectl apply -f https://github.com/knative/serving/releases/download/knative-v1.15.2/serving-core.yaml"
      become: true
-  
+
+   - name: Download Kourier Yaml Manifest
+     get_url: 
+      url: https://github.com/knative/net-kourier/releases/download/knative-v1.15.1/kourier.yaml
+      dest: "~/kourier.yaml"
+    
+   - name: Change from external load balancer to NodePort for local usage.
+     ansible.builtin.replace:
+      path: ~/kourier.yaml
+      regexp: 'type: LoadBalancer'
+      replace: 'type: NodePort'
+   - name: add hardcoded nodePort 31080 for port 80
+     ansible.builtin.replace:
+      path: ~/kourier.yaml # Replace with the actual path to your YAML file
+      regexp: '(\s+- name: http2\n\s+port: 80\n\s+protocol: TCP\n\s+targetPort: 8080)'
+      replace: '\1\n      nodePort: 31080'
+    
    - name: Installing the network layer of choice Kourier (Best for fit it all in Knative)
      shell:
-      cmd: "sudo kubectl apply -f https://github.com/knative/net-kourier/releases/download/knative-v1.15.1/kourier.yaml"
+      cmd: "sudo kubectl apply -f /home/sund/kourier.yaml"
      become: true
   
    - name: Configuring Kourier
@@ -71,15 +101,13 @@
       cmd: "sudo kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{\"data\":{\"ingress-class\":\"kourier.ingress.networking.knative.dev\"}}'"
      become: true
   
-   - name: Getting the external IP adress (This doesn't work on local setups)
-     shell:
-      cmd: "sudo kubectl --namespace kourier-system get service kourier"
+   - name: Patch with {ansible host}.slip.io
+     shell: |
+       sudo kubectl patch configmap/config-domain \
+       --namespace knative-serving \
+       --type merge \
+       --patch '{"data":{"{{ ansible_host }}.slip.io":""}}'
      become: true
-     register: externalIP
-  
-   - name: Show externalIP
-     debug:
-      var: externalIP.stdout
   
    - name: Pause for 2 minutes to build network
      ansible.builtin.pause:
@@ -96,9 +124,4 @@
     - name: Applying the yaml in kubernetes cluster
       shell:
         cmd: "sudo kubectl apply -f hello.yaml"
-      become: true
-
-    - name: Fix DNS because it is a local cluster
-      shell:
-        cmd: "sudo kubectl patch configmap/config-domain --namespace knative-serving --type merge --patch '{\"data\":{\"example.com\":\"\"}}'"
       become: true

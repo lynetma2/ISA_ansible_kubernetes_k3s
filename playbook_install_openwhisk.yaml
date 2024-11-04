@@ -60,13 +60,13 @@
         cmd: "sudo chmod 666 /etc/rancher/k3s/k3s.yaml"
       become: true
 
-    - name: Add repo for Openwhisk Helm Chart
+    - name: Download latest git source
       shell:
-        cmd: "helm repo add openwhisk https://openwhisk.apache.org/charts"
+        cmd: "git clone https://github.com/apache/openwhisk-deploy-kube.git"
     
     - name: Install Openwhisk Helm Chart
       shell:
-        cmd: "helm install my-openwhisk openwhisk/openwhisk --namespace ow --create-namespace --set whisk.ingress.apiHostName={{hostvars['server']['ansible_default_ipv4']['address']}}"
+        cmd: "helm install my-openwhisk ~/openwhisk-deploy-kube/helm/openwhisk --namespace ow --create-namespace --set whisk.ingress.apiHostName={{hostvars['server']['ansible_default_ipv4']['address']}}"
       environment:
         KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       register: ow_install
@@ -97,11 +97,23 @@
         src: ./hello.js
         dest: ~/hello.js
 
-    - name: Pause for 10 minutes to build network
-      ansible.builtin.pause:
-        minutes: 10
+    - name: Label the master nodes correctly inside of openwhisk
+      shell:
+        cmd: "kubectl label node master openwhisk-role=core"
 
-    #Down from here is creation of demo action. to test that it works
+    - name: Label the worker nodes correctly inside of openwhisk
+      shell:
+        cmd: "kubectl label node worker1 openwhisk-role=invoker"
+    
+    - name: Label the worker nodes correctly inside of openwhisk
+      shell:
+        cmd: "kubectl label node worker2 openwhisk-role=invoker"
+
+    - name: Pause for 30 minutes to build network #Make this wait on the actual installation.
+      ansible.builtin.pause:
+        minutes: 15
+     # #Down from here is creation of demo action. to test that it works
+
     
     - name: Create demo package
       shell:
@@ -120,5 +132,3 @@
       debug:
         var: url.stdout
     #TODO add the port to wsk to make sure everyhting works as supposed
-
-    #- name: Install OpenWhisk CLI tool
