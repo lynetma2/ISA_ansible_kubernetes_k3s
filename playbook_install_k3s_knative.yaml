@@ -85,15 +85,10 @@
       cmd: "sudo kubectl patch configmap/config-network --namespace knative-serving --type merge --patch '{\"data\":{\"ingress-class\":\"kourier.ingress.networking.knative.dev\"}}'"
      become: true
   
-   - name: Getting the external IP adress (This doesn't work on local setups)
+   - name: Fix DNS because it is a local cluster
      shell:
-      cmd: "sudo kubectl --namespace kourier-system get service kourier"
+       cmd: "sudo kubectl patch configmap/config-domain --namespace knative-serving --type merge --patch '{\"data\":{\"example.com\":\"\"}}'"
      become: true
-     register: externalIP
-  
-   - name: Show externalIP
-     debug:
-      var: externalIP.stdout
   
    - name: Pause for 2 minutes to build network
      ansible.builtin.pause:
@@ -112,7 +107,28 @@
         cmd: "sudo kubectl apply -f hello.yaml"
       become: true
 
-    - name: Fix DNS because it is a local cluster
-      shell:
-        cmd: "sudo kubectl patch configmap/config-domain --namespace knative-serving --type merge --patch '{\"data\":{\"example.com\":\"\"}}'"
-      become: true
+- name: Get service url
+  hosts: servers
+  tasks:
+     - name: Check the status of teh installed k3s nodes
+       shell:
+         cmd: "kubectl --namespace kourier-system get service kourier"
+       become: true
+       register: externalport
+       delegate_to: server
+      
+     - name: Show status content
+       debug:
+         var: externalport.stdout
+
+     - name: Check the status of teh installed k3s nodes
+       shell:
+         cmd: "kubectl get ksvc"
+       become: true
+       register: hostname
+       delegate_to: server
+      
+     - name: Show status content
+       debug:
+         var: hostname.stdout
+

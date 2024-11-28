@@ -2,6 +2,20 @@
 - name: Install OpenWhisk and wsk cli using helm
   hosts: servers
   tasks:
-    - name: Set the OpenWhisk port
+    - name: Transfer hello world javascript example
+      copy:
+        src: ./hello.js
+        dest: ~/hello.js
+    
+    - name: Create demo action
       shell:
-        cmd: "wsk property set --apihost {{ow_install.stdout[ow_install.stdout.find(\"hostvars['server']['ansible_default_ipv4']['address']\"):][:ow_install.stdout[ow_install.stdout.find(\"hostvars['server']['ansible_default_ipv4']['address']\"):].find(\"\n\")]}}"
+        cmd: "wsk -i action create /guest/demo/helloJS hello.js --web true"
+
+    - name: Get url of demo action
+      shell:
+        cmd: "wsk -i action get /guest/demo/helloJS --url"
+      register: url
+    
+    - name: Print URL of basic action
+      debug:
+        var: url.stdout

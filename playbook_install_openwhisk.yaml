@@ -88,15 +88,6 @@
       shell:
         cmd: "wsk property set --apihost {{ow_install.stdout[ow_install.stdout.find(hostvars['server']['ansible_default_ipv4']['address']):][:ow_install.stdout[ow_install.stdout.find(hostvars['server']['ansible_default_ipv4']['address']):].find(\"\n\")]}}"
 
-    - name: Set the OpenWhisk auth
-      shell:
-        cmd: "wsk property set --auth 23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"
-    
-    - name: Transfer hello world javascript example
-      copy:
-        src: ./hello.js
-        dest: ~/hello.js
-
     - name: Label the master nodes correctly inside of openwhisk
       shell:
         cmd: "kubectl label node master openwhisk-role=core"
@@ -109,11 +100,19 @@
       shell:
         cmd: "kubectl label node worker2 openwhisk-role=invoker"
 
+    - name: Set the OpenWhisk auth
+      shell:
+        cmd: "wsk property set --auth 23bc46b1-71f6-4ed5-8c54-816aa4f8c502:123zO3xZCLrMN6v2BKK1dXYFpXlPkccOFqm12CdAsMgRU4VrNZ9lyGVCGuMDGIwP"
+
     - name: Pause for 30 minutes to build network #Make this wait on the actual installation.
       ansible.builtin.pause:
         minutes: 15
      # #Down from here is creation of demo action. to test that it works
 
+    - name: Transfer hello world javascript example
+      copy:
+        src: ./hello.js
+        dest: ~/hello.js
     
     - name: Create demo package
       shell:
