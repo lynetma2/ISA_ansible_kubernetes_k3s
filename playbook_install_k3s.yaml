@@ -1,0 +1,63 @@
+- name: Install k3s on the server node
+  hosts: servers
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+  
+   - name: Install k3s on Server Node
+     shell:
+      "curl -sfL https://get.k3s.io | sh -"
+     become: true
+
+   - name: Get k3s Server Token
+     shell:
+      "sudo cat /var/lib/rancher/k3s/server/node-token"
+     become: true
+     register: token
+
+- name: Install k3s on the agent nodes
+  hosts: agents
+  tasks:
+   - name: Ping my hosts
+     ansible.builtin.ping:
+
+   - name: Print message
+     ansible.builtin.debug:
+      msg: Hello world
+
+   - name: Install k3s on Agent Nodes
+     shell:
+      cmd: "curl -sfL https://get.k3s.io | K3S_URL=https://{{hostvars['server']['ansible_default_ipv4']['address']}}:6443 K3S_TOKEN={{hostvars['server']['token'].stdout}} sh -"
+     become: true
+
+- name: Verify the installation
+  hosts: servers
+  tasks:
+   - name: Check the status of teh installed k3s nodes
+     shell:
+      cmd: "sudo k3s kubectl get nodes"
+     become: true
+     register: status
+     delegate_to: server
+  
+   - name: Show status content
+     debug:
+      var: status.stdout
+
+   - name: Update Configuration location
+     shell: 
+      cmd: "mkdir .kube"
+   
+   - name: Update Configuration
+     shell:
+      cmd: "sudo cp /etc/rancher/k3s/k3s.yaml /home/sund/.kube/config"
+     become: true
+  
+   - name: Fix permissions to k3s yaml
+     shell:
+      cmd: "sudo chmod 666 /etc/rancher/k3s/k3s.yaml"
+     become: true
